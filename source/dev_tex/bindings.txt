@@ -1,0 +1,2 @@
+nodraw;No Draw
+blocklight;Block Light
