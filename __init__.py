@@ -159,6 +159,12 @@ def writeAttatchments(selected:bool,file_path:str):
     f.write("}\n")
     f.close()
 
+def findDictItem(listDict:list[dict], name):
+    for item in listDict:
+        if item["file"] == name:
+            return item
+    return dict(file = "nofile.png", displayname = "No Binding Found")
+
 def load_previews(directory):
     """Loads the dropdown previews from the given directory."""
     pcoll = preview_collections.get("hammer")
@@ -173,6 +179,15 @@ def load_previews(directory):
     IMAGE_ENUM.clear()
 
     valid_exts = {'.png'}
+
+    bindingfile = open(os.path.join(directory,"bindings.txt"),"r")
+    lines = bindingfile.readlines()
+    filedict = []
+    for line in lines:
+        names = line.split(";")
+        linedict = dict(file =  names[0], displayname = names[1].strip())
+        filedict.append(linedict)
+
     for idx,file in enumerate(os.listdir(directory)):
         if not file.lower().endswith(tuple(valid_exts)):
             continue
@@ -181,7 +196,7 @@ def load_previews(directory):
         thumb = pcoll.load(file,filepath,'IMAGE')
 
         ##TODO: Replace the file.replace with the referenced name in the txt
-        IMAGE_ENUM.append((file,file.replace(".png",""),"",thumb.icon_id,idx))
+        IMAGE_ENUM.append((file,findDictItem(filedict, file.replace(".png",""))["displayname"],"",thumb.icon_id,idx))
 
 def unload_previews(directory):
     """Unloads the dropdown previews."""

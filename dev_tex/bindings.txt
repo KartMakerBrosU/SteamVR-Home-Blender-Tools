@@ -1,0 +1,4 @@
+nodraw;No Draw
+blocklight;Block Light
+blocklightsolid;Block Light Solid
+reflectivity_50;Reflectivity 50
