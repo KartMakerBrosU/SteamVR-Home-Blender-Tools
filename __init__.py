@@ -161,7 +161,7 @@ def writeAttatchments(selected:bool,file_path:str):
 
 def findDictItem(listDict:list[dict], name):
     for item in listDict:
-        if item["file"] == name:
+        if item == name:
             return item
     return dict(file = "nofile.png", displayname = "No Binding Found")
 
@@ -195,8 +195,9 @@ def load_previews(directory):
         filepath = os.path.join(directory,file)
         thumb = pcoll.load(file,filepath,'IMAGE')
 
+        curritem = findDictItem(filedict, filedict[idx-1])
         ##TODO: Replace the file.replace with the referenced name in the txt
-        IMAGE_ENUM.append((file,findDictItem(filedict, file.replace(".png",""))["displayname"],"",thumb.icon_id,idx))
+        IMAGE_ENUM.append((curritem['file'],curritem['displayname'],"",thumb.icon_id,idx))
 
 def unload_previews(directory):
     """Unloads the dropdown previews."""
@@ -288,7 +289,7 @@ class svd_addVMATPath(Operator):
         mat = bpy.context.active_object.active_material
         if(mat):
             mat["FBX_vmatPath"] = "materials/dev/reflectivity_50.vmat"
-            bpy.context.scene.svr_devtex.dev_enum = "reflectivity_50.png"
+            bpy.context.scene.svr_devtex.dev_enum = "materials\\dev\\reflectivity_50"
             return {'FINISHED'}
         else:
             self.report({'ERROR'},"Empty material list.")
@@ -318,7 +319,7 @@ class svr_VMATDevTex(PropertyGroup):
         mat = bpy.context.active_object.active_material
         if mat and mat.get("FBX_vmatPath"):
             newname = str(self.dev_enum).removesuffix(".png")
-            mat["FBX_vmatPath"] = f"materials/dev/{newname}.vmat"
+            mat["FBX_vmatPath"] = f"{newname}.vmat"
 
     dev_enum: bpy.props.EnumProperty(
         name = "Dev Tex Picker",
@@ -372,6 +373,9 @@ class SVR_PT_MatPanel(SVR_PT_CustomPanel):
                 layout.operator("svr.openvmat",icon='MATERIAL')
                 layout.label(text="Dev Texture:")
                 layout.prop(props,"dev_enum",text="")
+                ## try to detect if the selected material does not match the slected item from dev_vmat dropdown.
+                # if context.scene.svr_devtex.dev_enum != mat["FBX_vmatPath"].replace(".vmat",""):
+                #     bpy.context.scene.svr_devtex.dev_enum = mat["FBX_vmatPath"].replace(".vmat","")
             ## else, show add vmat button.
             else:
                 layout.operator("svr.addvmat",icon = "PROPERTIES")
