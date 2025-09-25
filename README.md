@@ -24,6 +24,7 @@ Create Issues request.
  * This tool is intended to be used when exporting the model as an **FBX**. 
     * `FBX Export > Include > Custom Properties` must be enabled.
     * `FBX Export > Transform > Scale` must be set to `3.28084` for Blender's inch to match SVR Hammer's inch unit.
+      * At some point blender changed its writing scale, if the previous scale is too big, try `0.393701`.  
 
  * You must set the scene units to **Imperial.**
 
