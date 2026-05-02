@@ -1,5 +1,6 @@
 import math
 import winreg
+import json
 
 svr_modspath = ""
 
@@ -67,14 +68,15 @@ def get_image_enum_items(self,context):
     """Returns image enum"""
     return IMAGE_ENUM
 
+
 ## -------------------------------------------------------
 ## Blender Addon General Info
 ## -------------------------------------------------------
 bl_info = {
-    "name": "SteamVR Blender Tools",
-    "description": "Tools for SteamVR Workshop Development..",
+    "name": "SteamVR Home Blender Tools",
+    "description": "Tools for SteamVR Home Development..",
     "author": "KartMakerBrosU",
-    "version": (1, 0, 0),
+    "version": (1, 1, 0),
     "blender": (4, 2, 0),
     "location": "3D View > Tools",
     "warning":"", # used for warning icon and text in addons panel
@@ -159,6 +161,7 @@ def writeAttatchments(selected:bool,file_path:str):
     f.write("}\n")
     f.close()
 
+## Finds the dictionary file by name
 def findDictItem(listDict:list[dict], name):
     for item in listDict:
         if item == name:
@@ -193,7 +196,7 @@ def load_previews(directory):
             continue
 
         filepath = os.path.join(directory,file)
-        thumb = pcoll.load(file,filepath,'IMAGE')
+        thumb = pcoll.load(file,filepath,'IMAGE') ## Load the thumbnails.
 
         curritem = findDictItem(filedict, filedict[idx-1])
         ##TODO: Replace the file.replace with the referenced name in the txt
@@ -207,6 +210,15 @@ def unload_previews(directory):
 
 def update_materials(tex_name):
     print(f"Material updated to: {tex_name}")
+
+def scene_has_empty(context = bpy.context):
+    return any(obj.type == 'EMPTY' for obj in context.scene.objects)
+
+def get_saved_selectedMod() -> str:
+    openPath = os.path.join(os.path.dirname(__file__), "settings.json")
+    with open(openPath, mode = 'r', encoding="utf-8") as read_file:
+        settings_data = json.load(read_file)
+        return settings_data["selected_mod"]
 
 
 # ------------------------------------------------------------------
@@ -238,6 +250,11 @@ class svr_exportAttatchments(Operator,ExportHelper):
         return {'FINISHED'}
 
     def invoke(self, context, event):
+        ##If there arent any empties. 
+        if not scene_has_empty(context):
+            self.report({'WARNING'}, "No empties in scene. Export cancelled.")
+            return {'CANCELLED'}
+        
         ##Set the default direcory
         self.filepath = os.path.join(svr_modspath + "\\",context.scene.svr_modname.preset_enum,"models","general")
         context.window_manager.fileselect_add(self)
@@ -258,6 +275,7 @@ class svr_openVMAT(Operator,ImportHelper):
     ) # type: ignore
     
     #add VMAT path relative to mod directory.
+    #After location is confirmed.
     def execute(self, context):
         global svr_modspath
 
@@ -269,6 +287,7 @@ class svr_openVMAT(Operator,ImportHelper):
         return {'FINISHED'}
     
     ## Set the ImportHelper default open directory.
+    ## Runs before the File Explorer is shown. 
     def invoke(self, context, event):
         if(bpy.context.active_object.active_material):
             ##Set default directory.
@@ -300,10 +319,17 @@ class svr_selectMod(PropertyGroup):
     bl_idname = "svr.selectmod"
     bl_label = "Select Mod"
 
+    def mod_select_changed(self,context):
+        savepath = os.path.join(os.path.dirname(__file__), "settings.json")
+        with open(savepath, 'w') as f:
+            json.dump({"selected_mod":self.preset_enum}, f)
+
     preset_enum : bpy.props.EnumProperty(
         items = getMods(),
         name = "",
         description="Select SteamVR Home Mod",
+        update=mod_select_changed,
+        default=get_saved_selectedMod(),
 
     ) # type: ignore
 
@@ -352,7 +378,6 @@ class SVR_PT_MainPanel(SVR_PT_CustomPanel):
         svrwork = scene.svr_modname
 
         layout.prop(svrwork,"preset_enum")
-        layout.operator("svr.exportatt",icon="EMPTY_ARROWS")
 
 class SVR_PT_MatPanel(SVR_PT_CustomPanel):
     """SVR Material subpanel"""
@@ -383,6 +408,16 @@ class SVR_PT_MatPanel(SVR_PT_CustomPanel):
         else:
             layout.label(text="Select an Object")
                
+class SVR_PT_ModelPanel(SVR_PT_CustomPanel):
+    """SVR Model SubPanel"""
+    bl_label = "Model Tools"
+    bl_idname = "SVR_PT_modelPanel"
+    bl_parent_id = "SVR_PT_mainPanel"
+
+    def draw(self,content):
+        layout = self.layout
+
+        layout.operator("svr.exportatt",icon="EMPTY_ARROWS")
 
 # ------------------------------------------------------------------------
 #    Registration
@@ -392,12 +427,13 @@ classes = (
     svr_selectMod,
     SVR_PT_MainPanel,
     SVR_PT_MatPanel,
+    SVR_PT_ModelPanel,
     svr_exportAttatchments,
     svr_openVMAT,
     svd_addVMATPath,
     svr_VMATDevTex,
-
 )
+
 def register():
     ##Load the dev texture previews.
     image_directory = os.path.join(os.path.dirname(__file__),"dev_tex")
@@ -413,8 +449,6 @@ def register():
     bpy.types.Scene.svr_modname = bpy.props.PointerProperty(type=svr_selectMod)
     bpy.types.Scene.svr_devtex = bpy.props.PointerProperty(type=svr_VMATDevTex)
 
-    
-
 def unregister():
     ## Unload the dev texture previews.
     image_directory = os.path.join(os.path.dirname(__file__),"dev_tex")
@@ -422,13 +456,12 @@ def unregister():
 
     ##Unregister the classes
     from bpy.utils import unregister_class
-    for cls in classes:
+    for cls in reversed(classes):
         unregister_class(cls)
 
     ## Delete the custom porperties
     del bpy.types.Scene.svr_modname
     del bpy.types.Scene.svr_devtex
-
 
 if __name__ == "__main__":
     register()
