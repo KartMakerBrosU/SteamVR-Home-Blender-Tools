@@ -1,4 +1,6 @@
+##MUST BE IN ALPHABETICAL ORDER (A-Z)
 materials\tools\toolsblocklight;Block Light
-materials\tools\toolssolidblocklight;Block Light Solid
 materials\tools\toolsnodraw;No Draw
 materials\dev\reflectivity_50;Reflectivity 50
+materials\tools\toolsskybox;Skybox
+materials\tools\toolssolidblocklight;Solid Block Light

@@ -210,15 +210,18 @@ def load_previews(directory):
     lines = bindingfile.readlines()
     filedict = []
     for line in lines:
+        if "##" in line:
+            ##Skip line processing if the line is marked as a comment (with ##)
+            continue
         names = line.split(";")
         dev_mats.append(names[0])
         linedict = dict(file =  names[0], displayname = names[1].strip())
         filedict.append(linedict)
 
     for idx,file in enumerate(os.listdir(directory)):
+        ##For each file in the dev_tex directory...
         if not file.lower().endswith(tuple(valid_exts)):
             continue
-
         filepath = os.path.join(directory,file)
         thumb = pcoll.load(file,filepath,'IMAGE') ## Load the thumbnails.
 
