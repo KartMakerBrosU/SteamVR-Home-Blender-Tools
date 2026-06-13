@@ -5,6 +5,8 @@ import json
 
 svr_modspath = ""
 mod_names = []
+dev_mats = []
+currentVMATState = 0
 
 ## Basic Classes
 class Vector:
@@ -116,9 +118,6 @@ class refPerson_3DCurRotation(bpy.types.AddonPreferences):
     def draw(self, context):
         layout = self.layout
         layout.prop(self, 'bool_Cur3DRotation', expand=True)
-        
-
-
 
 # ------------------------------------------------------------------------
 #    Additional Functions
@@ -191,6 +190,8 @@ def findDictItem(listDict:list[dict], name):
 
 def load_previews(directory):
     """Loads the dropdown previews from the given directory."""
+    global dev_mats
+
     pcoll = preview_collections.get("hammer")
 
     #If there are any previews currently in the variable,delete them.
@@ -201,6 +202,7 @@ def load_previews(directory):
     preview_collections["hammer"] = pcoll
 
     IMAGE_ENUM.clear()
+    dev_mats.clear()
 
     valid_exts = {'.png'}
 
@@ -209,6 +211,7 @@ def load_previews(directory):
     filedict = []
     for line in lines:
         names = line.split(";")
+        dev_mats.append(names[0])
         linedict = dict(file =  names[0], displayname = names[1].strip())
         filedict.append(linedict)
 
@@ -244,15 +247,23 @@ def get_prefs(context):
 def refChar_draw(self,context):
     self.layout.operator(svr_addRef.bl_idname, icon="ARMATURE_DATA")
 
-
 def onVMATChanged(self,context, newName:str) -> int:
+    """VMAT checks when changed. (Primarily used during manual change.)"""
+    "return 0 = material exists (no change)"
+    "return 1 = material exists but part of different mod (change 'current VMAT' label)"
+    "return 0 = material does not exist."
+
     curr_mod = context.scene.svr_modname.preset_enum
 
     full_path = os.path.join(svr_modspath,curr_mod, newName)
-    if os.path.exists(full_path):
-        return True
+    if os.path.exists(full_path) or newName.removesuffix(".vmat") in dev_mats:
+        return 0
     else:
-        return False
+        for item in mod_names:
+            full_path = os.path.join(svr_modspath,item, newName)
+            if os.path.exists(full_path):
+                return 1
+        return 2
     
 # ------------------------------------------------------------------
 #    Operator Scripts
@@ -450,6 +461,7 @@ class SVR_PT_MatPanel(SVR_PT_CustomPanel):
     bl_parent_id = "SVR_PT_mainPanel"
 
     def draw(self,context):
+        global currentVMATState
         global prev_name
         layout = self.layout
         props = context.scene.svr_devtex
@@ -471,10 +483,23 @@ class SVR_PT_MatPanel(SVR_PT_CustomPanel):
                 vmatNames = mat.get("FBX_vmatPath").split("\\")
                 vmatName = vmatNames[len(vmatNames)-1]
 
+                label_str = vmatName
                 if(prev_name != vmatName):
-                    onVMATChanged(self,context,mat.get("FBX_vmatPath"))
+                    currentVMATState = onVMATChanged(self,context,mat.get("FBX_vmatPath"))
+                print(currentVMATState)
+                match currentVMATState:
+                    case 0:
+                        label_str = vmatName
+                    case 1:
+                        label_str = "<Material from incorrect mod.>"
+                    case 2:
+                        label_str = "<File Does Not Exist>"
+                    case _:
+                        label_str = ""
+                            
                 prev_name = vmatName
-                layout.label(text=f"Current VMAT: {vmatName}")
+                layout.label(text=f"Current VMAT: {label_str}")
+
             else:
                 layout.operator("svr.addvmat",icon = "PROPERTIES")
         ## If not, tell user. 
