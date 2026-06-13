@@ -265,6 +265,9 @@ def onVMATChanged(self,context, newName:str) -> int:
                 return 1
         return 2
     
+def redrawUI():
+    for area in bpy.context.screen.areas:
+        area.tag_redraw()
 # ------------------------------------------------------------------
 #    Operator Scripts
 # ------------------------------------------------------------------------
@@ -370,9 +373,13 @@ class svr_selectMod(PropertyGroup):
     bl_label = "Select Mod"
 
     def mod_select_changed(self,context):
+        global currentVMATState
         savepath = os.path.join(os.path.dirname(__file__), "settings.json")
         with open(savepath, 'w') as f:
             json.dump({"selected_mod":self.preset_enum}, f)
+        mat = bpy.context.active_object.active_material
+        currentVMATState = onVMATChanged(self,context,mat.get("FBX_vmatPath"))
+        redrawUI()
 
     preset_enum : bpy.props.EnumProperty(
         items = getMods(),
@@ -386,7 +393,6 @@ class svr_selectMod(PropertyGroup):
     def draw(self,context):
         layout = self.layout
         layout.prop(self,"preset_enum")
-
 
 class svr_VMATDevTex(PropertyGroup):
     """Contains enum to select dev texture."""
@@ -425,8 +431,7 @@ class setDevMat(Operator):
         mat = bpy.context.active_object.active_material
         if mat and mat.get("FBX_vmatPath"):
             mat["FBX_vmatPath"] = f"{newname}.vmat"
-            for area in bpy.context.screen.areas:
-                area.tag_redraw()
+            redrawUI()
         return {'FINISHED'}
 
 # ------------------------------------------------------------------------
@@ -486,12 +491,11 @@ class SVR_PT_MatPanel(SVR_PT_CustomPanel):
                 label_str = vmatName
                 if(prev_name != vmatName):
                     currentVMATState = onVMATChanged(self,context,mat.get("FBX_vmatPath"))
-                print(currentVMATState)
                 match currentVMATState:
                     case 0:
                         label_str = vmatName
                     case 1:
-                        label_str = "<Material from incorrect mod.>"
+                        label_str = "<Material not from this Mod>"
                     case 2:
                         label_str = "<File Does Not Exist>"
                     case _:
