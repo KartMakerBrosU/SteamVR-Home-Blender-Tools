@@ -229,9 +229,6 @@ def unload_previews(directory):
         bpy_previews.remove(pcoll)
     preview_collections.clear()
 
-def update_materials(tex_name):
-    print(f"Material updated to: {tex_name}")
-
 def scene_has_empty(context = bpy.context):
     return any(obj.type == 'EMPTY' for obj in context.scene.objects)
 
