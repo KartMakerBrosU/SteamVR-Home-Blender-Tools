@@ -2,7 +2,9 @@ import math
 import winreg
 import json
 
+
 svr_modspath = ""
+mod_names = []
 
 ## Basic Classes
 class Vector:
@@ -31,15 +33,16 @@ class Attatchment:
         self.influences = influence
 
 
-def getMods() -> str:
+
+def getMods() -> list[str]:
     """Gets a list of SteamVR Home mods."""
-    mod_names = []
+    global mod_names
     global svr_modspath
     ## Get location of steam downloads
-    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,"SOFTWARE\WOW6432Node\Valve\Steam")
+    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,"SOFTWARE\\WOW6432Node\\Valve\\Steam")
     value,_ = winreg.QueryValueEx(key,"InstallPath")
     winreg.CloseKey(key)
-    library = open(value + "\steamapps\libraryfolders.vdf")
+    library = open(value + "\\steamapps\\libraryfolders.vdf")
 
     ## Clean up values
     for str in library.readlines():
@@ -62,7 +65,10 @@ def getMods() -> str:
     return options
 
 preview_collections = {}
+
 IMAGE_ENUM = []
+
+prev_name = ""
 
 def get_image_enum_items(self,context):
     """Returns image enum"""
@@ -240,6 +246,17 @@ def get_prefs(context):
 
 def refChar_draw(self,context):
     self.layout.operator(svr_addRef.bl_idname, icon="ARMATURE_DATA")
+
+
+def onVMATChanged(self,context, newName:str) -> int:
+    curr_mod = context.scene.svr_modname.preset_enum
+
+    full_path = os.path.join(svr_modspath,curr_mod, newName)
+    if os.path.exists(full_path):
+        return True
+    else:
+        return False
+    
 # ------------------------------------------------------------------
 #    Operator Scripts
 # ------------------------------------------------------------------------
@@ -299,9 +316,15 @@ class svr_openVMAT(Operator,ImportHelper):
         global svr_modspath
 
         svr_modpath = os.path.join(svr_modspath + "\\",context.scene.svr_modname.preset_enum)
+        
+        ##At this point, filepath should JUST be the reltive path from the mod. If not, the full path is provided and thus contains "C:"
         filepath = str(self.filepath).replace(svr_modpath + "\\","")
+        
+        ##If the filepath is relative. 
         if ":" not in filepath:
             bpy.context.active_object.active_material["FBX_vmatPath"] = filepath
+        else:
+            self.report({'ERROR_INVALID_INPUT'},"Selected VMAT not from current mod.")
 
         return {'FINISHED'}
     
@@ -309,7 +332,7 @@ class svr_openVMAT(Operator,ImportHelper):
     ## Runs before the File Explorer is shown. 
     def invoke(self, context, event):
         if(bpy.context.active_object.active_material):
-            ##Set default directory.
+            ##Set default directory. ("models" adds the currently selected folder, so the "materials" folder is in view.)
             self.filepath = os.path.join(svr_modspath + "\\",context.scene.svr_modname.preset_enum,"materials","models")
             context.window_manager.fileselect_add(self)
             return {'RUNNING_MODAL'}
@@ -356,6 +379,7 @@ class svr_selectMod(PropertyGroup):
         layout = self.layout
         layout.prop(self,"preset_enum")
 
+
 class svr_VMATDevTex(PropertyGroup):
     """Contains enum to select dev texture."""
 
@@ -389,7 +413,6 @@ class setDevMat(Operator):
     bl_label = "Set"
 
     def execute(self, context):
-        print("executed")
         newname = bpy.context.scene.svr_devtex.dev_enum
         mat = bpy.context.active_object.active_material
         if mat and mat.get("FBX_vmatPath"):
@@ -430,6 +453,7 @@ class SVR_PT_MatPanel(SVR_PT_CustomPanel):
     bl_parent_id = "SVR_PT_mainPanel"
 
     def draw(self,context):
+        global prev_name
         layout = self.layout
         props = context.scene.svr_devtex
         sel_obj = bpy.context.selected_objects
@@ -450,6 +474,9 @@ class SVR_PT_MatPanel(SVR_PT_CustomPanel):
                 vmatNames = mat.get("FBX_vmatPath").split("\\")
                 vmatName = vmatNames[len(vmatNames)-1]
 
+                if(prev_name != vmatName):
+                    onVMATChanged(self,context,mat.get("FBX_vmatPath"))
+                prev_name = vmatName
                 layout.label(text=f"Current VMAT: {vmatName}")
             else:
                 layout.operator("svr.addvmat",icon = "PROPERTIES")
@@ -517,7 +544,7 @@ def unregister():
     ## Delete the custom porperties
     del bpy.types.Scene.svr_modname
     del bpy.types.Scene.svr_devtex
-    
+
     bpy.types.VIEW3D_MT_mesh_add.remove(refChar_draw)
 
 if __name__ == "__main__":
