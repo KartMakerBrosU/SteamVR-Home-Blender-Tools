@@ -76,14 +76,13 @@ bl_info = {
     "name": "SteamVR Home Blender Tools",
     "description": "Tools for SteamVR Home Development..",
     "author": "KartMakerBrosU",
-    "version": (1, 1, 0),
+    "version": (1, 2, 0),
     "blender": (4, 2, 0),
     "location": "3D View > Tools",
     "warning":"", # used for warning icon and text in addons panel
-    "wiki_url": "",
-    "tracker_url": "",
     "category": "SVR"
 }
+
 
 import bpy
 import os
@@ -98,6 +97,22 @@ import bpy.utils.previews as bpy_previews
 
 if bpy.app.version < (4, 0, 0):
     raise Exception("This add-on is incompatible with Blender versions older than 4.0.0")
+
+class refPerson_3DCurRotation(bpy.types.AddonPreferences):
+    bl_idname = __name__
+
+    bool_Cur3DRotation: bpy.props.BoolProperty(
+        name = "Refrence Chracter matches 3D Cursor Rotation",
+        description="If on, the added refrence character would have the same rotation as the 3D cursor.",
+        default=False,
+    )
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, 'bool_Cur3DRotation', expand=True)
+        
+
+
 
 # ------------------------------------------------------------------------
 #    Additional Functions
@@ -220,7 +235,11 @@ def get_saved_selectedMod() -> str:
         settings_data = json.load(read_file)
         return settings_data["selected_mod"]
 
+def get_prefs(context):
+    return context.preferences.addons[__name__].preferences
 
+def refChar_draw(self,context):
+    self.layout.operator(svr_addRef.bl_idname, icon="ARMATURE_DATA")
 # ------------------------------------------------------------------
 #    Operator Scripts
 # ------------------------------------------------------------------------
@@ -354,6 +373,25 @@ class svr_VMATDevTex(PropertyGroup):
         update = dev_tex_changed,
     ) #type: ignore
 
+class svr_addRef(Operator):
+    """Adds a 6ft reference person in the scene."""
+    bl_idname = "svr.addref"
+    bl_label = "Add Reference Character"
+
+    def execute(self, context):
+        addon_dir = os.path.dirname(os.path.realpath(__file__))
+        obj_path = os.path.join(addon_dir, "models", "ue4_mannequin.obj")
+        bpy.ops.wm.obj_import(filepath=obj_path)
+        obj = context.active_object
+        obj.location = context.scene.cursor.location
+
+        prefs = get_prefs(context)
+        if prefs.bool_Cur3DRotation:
+            obj.rotation_euler = context.scene.cursor.rotation_euler.copy()
+            obj.rotation_euler.x += math.radians(90)
+        return {'FINISHED'}
+    
+
 # ------------------------------------------------------------------------
 #    Panel Classes
 # ------------------------------------------------------------------------
@@ -418,6 +456,7 @@ class SVR_PT_ModelPanel(SVR_PT_CustomPanel):
         layout = self.layout
 
         layout.operator("svr.exportatt",icon="EMPTY_ARROWS")
+        layout.operator("svr.addref", icon="ARMATURE_DATA")
 
 # ------------------------------------------------------------------------
 #    Registration
@@ -432,6 +471,8 @@ classes = (
     svr_openVMAT,
     svd_addVMATPath,
     svr_VMATDevTex,
+    svr_addRef,
+    refPerson_3DCurRotation,
 )
 
 def register():
@@ -449,6 +490,8 @@ def register():
     bpy.types.Scene.svr_modname = bpy.props.PointerProperty(type=svr_selectMod)
     bpy.types.Scene.svr_devtex = bpy.props.PointerProperty(type=svr_VMATDevTex)
 
+    bpy.types.VIEW3D_MT_mesh_add.append(refChar_draw)
+
 def unregister():
     ## Unload the dev texture previews.
     image_directory = os.path.join(os.path.dirname(__file__),"dev_tex")
@@ -462,6 +505,8 @@ def unregister():
     ## Delete the custom porperties
     del bpy.types.Scene.svr_modname
     del bpy.types.Scene.svr_devtex
+    
+    bpy.types.VIEW3D_MT_mesh_add.remove(refChar_draw)
 
 if __name__ == "__main__":
     register()
