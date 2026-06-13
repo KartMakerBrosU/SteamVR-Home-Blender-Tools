@@ -326,7 +326,7 @@ class svd_addVMATPath(Operator):
     def execute(self,context):
         mat = bpy.context.active_object.active_material
         if(mat):
-            mat["FBX_vmatPath"] = "materials/dev/reflectivity_50.vmat"
+            mat["FBX_vmatPath"] = "materials\\dev\\reflectivity_50.vmat"
             bpy.context.scene.svr_devtex.dev_enum = "materials\\dev\\reflectivity_50"
             return {'FINISHED'}
         else:
@@ -359,18 +359,10 @@ class svr_selectMod(PropertyGroup):
 class svr_VMATDevTex(PropertyGroup):
     """Contains enum to select dev texture."""
 
-    ## On New VMAT
-    def dev_tex_changed(self,context):
-        mat = bpy.context.active_object.active_material
-        if mat and mat.get("FBX_vmatPath"):
-            newname = str(self.dev_enum).removesuffix(".png")
-            mat["FBX_vmatPath"] = f"{newname}.vmat"
-
     dev_enum: bpy.props.EnumProperty(
         name = "Dev Tex Picker",
         description="Select a Dev Texture",
         items = get_image_enum_items,
-        update = dev_tex_changed,
     ) #type: ignore
 
 class svr_addRef(Operator):
@@ -391,6 +383,20 @@ class svr_addRef(Operator):
             obj.rotation_euler.x += math.radians(90)
         return {'FINISHED'}
     
+class setDevMat(Operator):
+    """Sets the current dev texture."""
+    bl_idname = "svr.setdevmat"
+    bl_label = "Set"
+
+    def execute(self, context):
+        print("executed")
+        newname = bpy.context.scene.svr_devtex.dev_enum
+        mat = bpy.context.active_object.active_material
+        if mat and mat.get("FBX_vmatPath"):
+            mat["FBX_vmatPath"] = f"{newname}.vmat"
+            for area in bpy.context.screen.areas:
+                area.tag_redraw()
+        return {'FINISHED'}
 
 # ------------------------------------------------------------------------
 #    Panel Classes
@@ -434,12 +440,17 @@ class SVR_PT_MatPanel(SVR_PT_CustomPanel):
             ## If selected material has custom property, show dev tex menu.
             if mat and mat.get("FBX_vmatPath"):
                 layout.operator("svr.openvmat",icon='MATERIAL')
-                layout.label(text="Dev Texture:")
-                layout.prop(props,"dev_enum",text="")
-                ## try to detect if the selected material does not match the slected item from dev_vmat dropdown.
-                # if context.scene.svr_devtex.dev_enum != mat["FBX_vmatPath"].replace(".vmat",""):
-                #     bpy.context.scene.svr_devtex.dev_enum = mat["FBX_vmatPath"].replace(".vmat","")
-            ## else, show add vmat button.
+
+                dev_box = layout.box()
+                dev_box.label(text="Dev Texture:")
+                dev_row = dev_box.split(factor=0.8)
+                dev_row.prop(props,"dev_enum",text="")
+                dev_row.operator( setDevMat.bl_idname)
+
+                vmatNames = mat.get("FBX_vmatPath").split("\\")
+                vmatName = vmatNames[len(vmatNames)-1]
+
+                layout.label(text=f"Current VMAT: {vmatName}")
             else:
                 layout.operator("svr.addvmat",icon = "PROPERTIES")
         ## If not, tell user. 
@@ -473,6 +484,7 @@ classes = (
     svr_VMATDevTex,
     svr_addRef,
     refPerson_3DCurRotation,
+    setDevMat,
 )
 
 def register():
