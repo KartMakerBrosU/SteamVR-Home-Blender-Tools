@@ -242,7 +242,14 @@ def get_saved_selectedMod() -> str:
     openPath = os.path.join(os.path.dirname(__file__), "settings.json")
     with open(openPath, mode = 'r', encoding="utf-8") as read_file:
         settings_data = json.load(read_file)
-        return settings_data["selected_mod"]
+        if settings_data["selected_mod"] == "":
+            print("ERROR: No previously selected mod. Defaulting to first.")
+            return 0
+        elif settings_data["selected_mod"] not in mod_names:
+            print("ERROR: Previous mod not found in available mods. Defaulting to first.")
+            return 0
+        else:
+            return settings_data["selected_mod"]
 
 def get_prefs(context):
     return context.preferences.addons[__name__].preferences
@@ -380,8 +387,11 @@ class svr_selectMod(PropertyGroup):
         savepath = os.path.join(os.path.dirname(__file__), "settings.json")
         with open(savepath, 'w') as f:
             json.dump({"selected_mod":self.preset_enum}, f)
-        mat = bpy.context.active_object.active_material
-        currentVMATState = onVMATChanged(self,context,mat.get("FBX_vmatPath"))
+        active_object = mat = bpy.context.active_object
+        if active_object:
+            mat = bpy.context.active_object.active_material
+            if mat.get("FBX_vmatPath") != None:
+                currentVMATState = onVMATChanged(self,context,mat.get("FBX_vmatPath"))
         redrawUI()
 
     preset_enum : bpy.props.EnumProperty(
